@@ -1,150 +1,109 @@
-// Input-output stream library (for cout, cin)
 #include <iostream>
-
-// For _kbhit() and _getch() → keyboard input without Enter
 #include <conio.h>
-
-// For general utilities (not strictly required here)
-#include <cstdlib>
-
-// For time-related functions (not used yet)
-#include <ctime>
-
-// For Sleep() function (delay in milliseconds)
 #include <windows.h>
-
 using namespace std;
 
-// Enum to represent game states / directions
-enum GameState
-{
-    RUNNING, // No movement
-    LEFT,    // Paddle moving left
-    RIGHT    // Paddle moving right
-};
+// Direction states for paddle
+enum GameState { RUNNING, LEFT, RIGHT };
 
-// Variable to store current paddle direction
 GameState dir;
-
-// Flag to stop the game loop
 bool GAME_OVER = false;
 
-// Game object positions and dimensions
-int x, y;        // Ball position (x → column, y → row)
-int dx, dy;      // ball velocity
-int px, py;      // Paddle position (px → column, py → row)
-int width = 40;  // Width of the game area
-int height = 20; // Height of the game area
-int score = 0;   // score for the game
+// Game dimensions
+int width = 40, height = 20;
 
-// Game class
+// Ball variables
+int x, y;      // position
+int dx, dy;    // velocity
+
+// Paddle variables
+int px, py;
+
+// Game stats
+int score = 0;
+int level = 1;
+int speed = 120;   // lower = faster
+
 class Bounce
 {
 public:
-    // Initializes game variables
+    // Initialize game variables
     void setup()
     {
-        GAME_OVER = false; // Game starts running
-        dir = RUNNING;     // Paddle initially not moving
+        GAME_OVER = false;
+        dir = RUNNING;
 
-        // Ball direction
+        // Ball starts in center
+        x = width / 2;
+        y = height / 2;
         dx = 1;
         dy = -1;
 
-        x = width / 2;  // Ball starts at center (x-axis)
-        y = height / 2; // Ball starts at center (y-axis)
+        // Paddle near bottom
+        px = width / 2;
+        py = height - 2;
 
-        py = height - 2; // Paddle near bottom wall
-        px = width / 2;  // Paddle starts in middle
+        score = 0;
+        level = 1;
+        speed = 120;
     }
 
-    // Draws the game frame
+    // Draw game frame
     void draw()
     {
-        system("cls"); // Clears console screen (Windows)
+        system("cls");
 
-        // Draw top wall
-        for (int i = 0; i < width + 2; i++)
-            cout << "_";
+        // Top wall
+        for (int i = 0; i < width + 2; i++) cout << "_";
         cout << endl;
 
-        // Draw game area
+        // Game area
         for (int i = 0; i < height; i++)
         {
-            cout << "|"; // Left wall
-
+            cout << "|";
             for (int j = 0; j < width; j++)
             {
-                // Draw paddle (width = 4)
-                if (i == py && j >= px && j < px + 4)
-                    cout << "=";
-
-                // Draw ball
-                else if (i == y && j == x)
-                    cout << "O";
-
-                // Empty space
-                else
-                    cout << " ";
+                if (i == py && j >= px && j < px + 4) cout << "=";   // Paddle
+                else if (i == y && j == x) cout << "O";             // Ball
+                else cout << " ";
             }
-
-            cout << "|"; // Right wall
-
-            cout << endl;
+            cout << "|" << endl;
         }
 
-        // Draw bottom wall
-        for (int i = 0; i < width + 2; i++)
-            cout << "_";
-        cout << endl;
-        cout << "\n\nSCORE : " << score;
+        // Bottom wall
+        for (int i = 0; i < width + 2; i++) cout << "_";
+
+        cout << "\n\nSCORE: " << score << "  LEVEL: " << level;
     }
 
-    // Handles keyboard input
+    // Handle keyboard input
     void input()
     {
-        // Checks if a key is pressed (non-blocking)
         if (_kbhit())
         {
-            char ch = _getch(); // Reads key without waiting for Enter
-
-            switch (ch)
-            {
-            case 'a': // Move paddle left
-                dir = LEFT;
-                break;
-
-            case 'd': // Move paddle right
-                dir = RIGHT;
-                break;
-
-            case 'x': // Exit game
-                GAME_OVER = true;
-                break;
-            }
+            char ch = _getch();
+            if (ch == 'a') dir = LEFT;
+            else if (ch == 'd') dir = RIGHT;
+            else if (ch == 'x') GAME_OVER = true;
         }
     }
 
-    // Game logic (movement handling)
+    // Game logic
     void logic()
     {
         // Paddle movement
         if (dir == LEFT && px > 0)
-            px--;
+            px -= (score > 20 ? 2 : 1);
         else if (dir == RIGHT && px < width - 4)
-            px++;
+            px += (score > 20 ? 2 : 1);
 
         // Ball movement
         x += dx;
         y += dy;
 
-        // Left & right wall collision
-        if (x <= 0 || x >= width - 1)
-            dx = -dx;
-
-        // Top wall collision
-        if (y <= 0)
-            dy = -dy;
+        // Wall collisions
+        if (x <= 0 || x >= width - 1) dx = -dx;
+        if (y <= 0) dy = -dy;
 
         // Paddle collision
         if (y == py - 1 && x >= px && x < px + 4)
@@ -153,7 +112,14 @@ public:
             score += 10;
         }
 
-        // Game over (ball missed paddle)
+        // Level progression
+        if (score >= level * 100)
+        {
+            level++;
+            speed = max(30, speed - 15);
+        }
+
+        // Game over condition
         if (y >= height - 1)
             GAME_OVER = true;
     }
@@ -161,22 +127,18 @@ public:
 
 int main()
 {
-    Bounce b; // Create game object
+    Bounce b;
+    b.setup();
 
-    system("cls"); // Clear screen once
-    b.setup();     // Initialize game
-
-    // Game loop
-    while (GAME_OVER != true)
+    while (!GAME_OVER)
     {
-        b.draw();  // Render game
-        b.input(); // Take user input
-        b.logic(); // Update game logic
-
-        Sleep(100); // Delay for smooth animation
+        b.draw();
+        b.input();
+        b.logic();
+        Sleep(speed);   // control game speed
     }
 
-    return 0; // Exit program
+    system("cls");
+    cout << "GAME OVER\nFINAL SCORE: " << score;
+    return 0;
 }
-
-/// i want to add levels in init if scored is crossed by 100 the speed increases
